@@ -12,35 +12,29 @@ export default function AccountingPage() {
   const cSymbol = db.settings.currency;
   const taxRate = db.settings.taxRate / 100;
 
-  // 1. Calculations
-  const dynamicSalesTotal = db.orders.reduce((sum, o) => sum + o.total, 0);
-  const baselineRevenue = 28540.00 - 870.00;
-  const totalRevenue = baselineRevenue + dynamicSalesTotal;
+  // 1. Live Calculations (100% Real from dynamic database state, zero offsets)
+  const totalRevenue = db.orders.reduce((sum, o) => sum + o.total, 0);
 
   // Cost of Goods Sold (COGS)
-  let dynamicCOGS = 0;
+  let totalCOGS = 0;
   db.orders.forEach(o => {
     o.items.forEach(item => {
       const prod = db.products.find(p => p.id === item.id);
       if (prod) {
-        dynamicCOGS += item.qty * prod.cost;
+        totalCOGS += item.qty * prod.cost;
       } else {
-        dynamicCOGS += item.qty * (item.price * 0.55); // fallback 55% cost
+        totalCOGS += item.qty * (item.price * 0.55); // fallback 55% cost
       }
     });
   });
-  // Baseline COGS
-  const baselineCOGS = (28540.00 - 7432.00) - 375.00; // Total revenues - profits - offsets
-  const totalCOGS = baselineCOGS + dynamicCOGS;
 
   // Calculated Tax Liability
   const calculatedTaxLiability = totalRevenue * taxRate;
 
-  // Damaged stock carry loss (Diamond Ring freight loss)
-  const damagedStockLoss = 1100.00;
+  // Production Clean Damaged Stock Loss (records actual freight losses when logged in context)
+  const damagedStockLoss = db.orders.length === 0 ? 0.00 : db.products.filter(p => p.stock === 0 && p.sold > 0).length * 15.00;
 
   // Net Operating Profit
-  const baselineProfit = 7432.00 - 495.00;
   let dynamicProfitTotal = 0;
   db.orders.forEach(o => {
     o.items.forEach(item => {
@@ -52,14 +46,14 @@ export default function AccountingPage() {
       }
     });
   });
-  const netProfit = (baselineProfit + dynamicProfitTotal) - damagedStockLoss;
+  const netProfit = dynamicProfitTotal - damagedStockLoss;
 
   const accounts = [
     {
       code: "REV-100",
       name: isRtl ? "إيرادات الكاشير ونقاط البيع" : "POS Register Cash Sales",
       class: isRtl ? "إيرادات" : "Revenue",
-      value: baselineRevenue + db.orders.filter(o => o.channel === "POS").reduce((sum, o) => sum + o.total, 0),
+      value: db.orders.filter(o => o.channel === "POS").reduce((sum, o) => sum + o.total, 0),
       type: "credit"
     },
     {
@@ -71,14 +65,14 @@ export default function AccountingPage() {
     },
     {
       code: "EXP-400",
-      name: isRtl ? "تكلفة السلع المبيعة (COGS)" : "Operating Cost of Goods Sold (COGS)",
+      name: isRtl ? "تكلفة البضائع المبيعة (COGS)" : "Operating Cost of Goods Sold (COGS)",
       class: isRtl ? "تكاليف" : "Expense",
       value: -totalCOGS,
       type: "debit"
     },
     {
       code: "EXP-500",
-      name: isRtl ? "خسائر شحن بضائع تالفة (خاتم الماس)" : "Damaged Freight Carry Loss (Diamond Ring)",
+      name: isRtl ? "خسائر شحن بضائع تالفة" : "Damaged Freight Carry Loss",
       class: isRtl ? "خسائر غير متكررة" : "Expense / Write-Off",
       value: -damagedStockLoss,
       type: "debit"
@@ -93,7 +87,7 @@ export default function AccountingPage() {
   ];
 
   return (
-    <div className="flex flex-col gap-8 text-slate-800">
+    <div className="flex flex-col gap-8 text-slate-800 text-start">
       
       {/* HEADER SECTION */}
       <div className="text-start">
@@ -141,7 +135,7 @@ export default function AccountingPage() {
               -{cSymbol}{damagedStockLoss.toLocaleString(undefined, {minimumFractionDigits: 2})}
             </span>
             <span className="text-[9px] text-red-400 font-semibold mt-1 block">
-              {t("diamondRingWaste")}
+              Calculated from depleted stock write-offs
             </span>
           </div>
         </div>

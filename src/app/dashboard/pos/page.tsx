@@ -47,12 +47,19 @@ export default function POSPage() {
 
   // Filter products by search and category
   const filteredProducts = db.products.filter(p => {
-    const matchesCategory = activeCategory === "all" || p.category === activeCategory;
+    const matchesCategory = activeCategory === "all" || p.category === matchesCategoryFilter(activeCategory);
     const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           p.category.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           p.sku.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
   });
+
+  function matchesCategoryFilter(filter: string) {
+    if (filter === "Electronics") return "Electronics";
+    if (filter === "Apparel") return "Apparel";
+    if (filter === "Jewelry") return "Jewelry";
+    return filter;
+  }
 
   const addToCart = (product: Product) => {
     if (product.stock <= 0) return;
@@ -92,13 +99,11 @@ export default function POSPage() {
     setCart(prev => prev.filter(item => item.id !== id));
   };
 
-  // Stripe & Grand checkout logic
   const handleCheckoutTrigger = (e: React.FormEvent) => {
     e.preventDefault();
     if (cart.length === 0) return;
 
     if (selectedPayment === "stripe") {
-      // Prompt warning if Stripe Keys are missing
       if (!db.settings.stripeSecretKey) {
         alert(isRtl 
           ? "تنبيه: مفتاح Stripe Secret Key غير مضبوط في الإعدادات. يرجى إدخاله لتفعيل الدفع الحقيقي، أو سنقوم بعمل محاكاة تشغيلية للدفع الآن."
@@ -110,7 +115,6 @@ export default function POSPage() {
     }
   };
 
-  // Real payment intents checkout processor
   const handleStripePaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setStripeProcessing(true);
@@ -122,7 +126,6 @@ export default function POSPage() {
 
     try {
       if (db.settings.stripeSecretKey) {
-        // Trigger real server-side Stripe PaymentIntent creation!
         const res = await fetch("/api/checkout", {
           method: "POST",
           headers: {
@@ -139,11 +142,8 @@ export default function POSPage() {
         if (!res.ok) {
           throw new Error(data.error || "Stripe PaymentIntent request failed.");
         }
-
-        console.log("Stripe PaymentIntent generated successfully: ", data.clientSecret);
       }
 
-      // Simulate successful payment capture client-side
       setTimeout(() => {
         setStripeProcessing(false);
         setShowStripeModal(false);
@@ -248,15 +248,66 @@ export default function POSPage() {
     setCart([]);
   };
 
+  const triggerReceiptPrint = () => {
+    window.print();
+  };
+
   const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
   const taxAmount = subtotal * (db.settings.taxRate / 100);
   const grandTotal = subtotal + taxAmount;
 
   return (
     <div className="flex flex-col xl:flex-row gap-8 text-slate-800">
+      {/* 0. PRINT CSS SHEET OVERRIDES (Thermal receipt layout printer) */}
+      <style jsx global>{`
+        @media print {
+          /* Hide all UI elements */
+          body * {
+            visibility: hidden !important;
+          }
+          /* Only make the print receipt area and its descendants visible */
+          .fixed-overlay-print, #thermal-print-area, #thermal-print-area * {
+            visibility: visible !important;
+          }
+          /* Hide close buttons and operational action buttons specifically */
+          .no-print, header, footer, nav, aside, .sidebar, .navbar, button, .modal-header {
+            display: none !important;
+            visibility: hidden !important;
+          }
+          /* Position the print container perfectly at the top of the printed stream */
+          .fixed-overlay-print {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            height: auto !important;
+            background: white !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            display: block !important;
+            box-shadow: none !important;
+            border: none !important;
+          }
+          #thermal-print-area {
+            position: absolute !important;
+            left: 50% !important;
+            top: 0 !important;
+            transform: translateX(-50%) !important;
+            width: 80mm !important;
+            padding: 6mm !important;
+            background: white !important;
+            color: black !important;
+            font-family: 'Courier New', Courier, monospace !important;
+            font-size: 12px !important;
+            line-height: 1.4 !important;
+            box-shadow: none !important;
+            border: none !important;
+          }
+        }
+      `}</style>
       
       {/* 1. LEFT COLUMN: CATALOG GRID */}
-      <div className="flex-1 flex flex-col gap-6">
+      <div className="flex-1 flex flex-col gap-6 no-print">
         <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
           <h2 className="text-2xl font-black text-slate-900 tracking-tight text-start">
             {t("menuPos")}
@@ -290,43 +341,53 @@ export default function POSPage() {
 
         {/* Products Grid */}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {filteredProducts.map(p => {
-            const outOfStock = p.stock <= 0;
-            return (
-              <div
-                key={p.id}
-                onClick={() => !outOfStock && addToCart(p)}
-                className={`bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between shadow-sm cursor-pointer hover:border-blue-500/80 hover:shadow-md select-none transition-all relative ${outOfStock ? "opacity-60 cursor-not-allowed" : ""}`}
-              >
-                {outOfStock && (
-                  <span className="absolute top-3 right-3 bg-red-500 text-white font-extrabold text-[8px] uppercase tracking-wider px-2 py-0.5 rounded-full z-10">
-                    {t("outStockLabel")}
+          {db.products.length === 0 ? (
+            <div className="col-span-3 bg-white border border-slate-200 rounded-2xl p-12 text-center text-slate-400 font-semibold">
+              {isRtl ? "مخزن المتجر فارغ حالياً. أضف سلعاً في إدارة المخزن لتظهر هنا." : "Warehouse catalog empty. Add products in Inventory to start POS checkouts."}
+            </div>
+          ) : filteredProducts.length === 0 ? (
+            <div className="col-span-3 bg-white border border-slate-200 rounded-2xl p-12 text-center text-slate-400 font-semibold">
+              No matching products found.
+            </div>
+          ) : (
+            filteredProducts.map(p => {
+              const outOfStock = p.stock <= 0;
+              return (
+                <div
+                  key={p.id}
+                  onClick={() => !outOfStock && addToCart(p)}
+                  className={`bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between shadow-sm cursor-pointer hover:border-blue-500/80 hover:shadow-md select-none transition-all relative ${outOfStock ? "opacity-60 cursor-not-allowed" : ""}`}
+                >
+                  {outOfStock && (
+                    <span className="absolute top-3 right-3 bg-red-500 text-white font-extrabold text-[8px] uppercase tracking-wider px-2 py-0.5 rounded-full z-10">
+                      {t("outStockLabel")}
+                    </span>
+                  )}
+                  
+                  <span className="text-3xl mb-4 self-start bg-slate-50 border border-slate-100 w-12 h-12 rounded-xl flex items-center justify-center">
+                    {p.emoji || "📦"}
                   </span>
-                )}
-                
-                <span className="text-3xl mb-4 self-start bg-slate-50 border border-slate-100 w-12 h-12 rounded-xl flex items-center justify-center">
-                  {p.emoji || "📦"}
-                </span>
 
-                <div className="text-start">
-                  <div className="font-extrabold text-slate-900 text-xs truncate">{p.name}</div>
-                  <div className="text-[10px] text-slate-400 font-semibold mt-0.5 truncate">{p.sku}</div>
-                </div>
+                  <div className="text-start">
+                    <div className="font-extrabold text-slate-900 text-xs truncate">{p.name}</div>
+                    <div className="text-[10px] text-slate-400 font-semibold mt-0.5 truncate">{p.sku}</div>
+                  </div>
 
-                <div className="flex items-center justify-between border-t border-slate-100 pt-3 mt-4">
-                  <span className="font-black text-slate-800 text-sm">{cSymbol}{p.price.toFixed(2)}</span>
-                  <span className={`text-[9px] font-bold ${p.stock <= 9 ? "text-red-500" : "text-slate-400"}`}>
-                    Stock: {p.stock}
-                  </span>
+                  <div className="flex items-center justify-between border-t border-slate-100 pt-3 mt-4">
+                    <span className="font-black text-slate-800 text-sm">{cSymbol}{p.price.toFixed(2)}</span>
+                    <span className={`text-[9px] font-bold ${p.stock <= 9 ? "text-red-500" : "text-slate-400"}`}>
+                      Stock: {p.stock}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
       </div>
 
       {/* 2. RIGHT COLUMN: SHOPPING CART */}
-      <div className="w-full xl:w-96">
+      <div className="w-full xl:w-96 no-print">
         <form onSubmit={handleCheckoutTrigger} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col gap-6 sticky top-24">
           <div className="flex items-center gap-2.5 border-b border-slate-100 pb-4">
             <ShoppingCart className="w-5 h-5 text-blue-600" />
@@ -397,7 +458,7 @@ export default function POSPage() {
                 <option value="cash">{t("cashPOS")}</option>
                 <option value="layaway">{t("layawayOpt")}</option>
                 <option value="split">{t("splitOpt")}</option>
-                <option value="stripe">{isRtl ? "بطاقة الائتمان (Stripe Gateway)" : "Stripe Payment Gateway"}</option>
+                <option value="stripe">{isRtl ? "بطاقة الائتمان (Stripe)" : "Stripe Payment Gateway"}</option>
               </select>
             </div>
 
@@ -428,10 +489,10 @@ export default function POSPage() {
         </form>
       </div>
 
-      {/* 3. STRIPE SECURE CREDIT CARD OVERLAY */}
+      {/* 3. STRIPE SECURE CREDIT CARD OVERLAY (no-print) */}
       <AnimatePresence>
         {showStripeModal && (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6 no-print">
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -443,9 +504,7 @@ export default function POSPage() {
                   <CreditCard className="w-5 h-5 text-blue-600" />
                   <span>Stripe Secure Credit Card checkout</span>
                 </h3>
-                <button onClick={() => setShowStripeModal(false)} className="p-2 hover:bg-slate-100 rounded-lg cursor-pointer">
-                  <X className="w-5 h-5 text-slate-500" />
-                </button>
+                <button onClick={() => setShowStripeModal(false)} className="p-2 hover:bg-slate-100 rounded-lg cursor-pointer"><X className="w-5 h-5 text-slate-500" /></button>
               </div>
 
               <form onSubmit={handleStripePaymentSubmit} className="flex flex-col gap-4 text-start">
@@ -516,17 +575,17 @@ export default function POSPage() {
         )}
       </AnimatePresence>
 
-      {/* 4. RECEIPT OVERLAY MODAL */}
+      {/* 4. RECEIPT OVERLAY MODAL (Print Thermal Receipt) */}
       <AnimatePresence>
         {receiptOrder && (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6 fixed-overlay-print">
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
               className="bg-white border border-slate-200 rounded-2xl shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto"
             >
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-6">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-6 no-print">
                 <h3 className="font-extrabold text-slate-800 text-sm tracking-tight flex items-center gap-2">
                   <FileText className="w-4 h-4 text-emerald-500" />
                   <span>{t("receiptTitle")}</span>
@@ -534,10 +593,13 @@ export default function POSPage() {
                 <button onClick={() => setReceiptOrder(null)} className="p-2 hover:bg-slate-100 rounded-lg cursor-pointer"><X className="w-5 h-5 text-slate-500" /></button>
               </div>
 
-              {/* Receipt Body */}
-              <div className="flex flex-col gap-4 text-xs font-semibold text-slate-500 border border-slate-200/80 rounded-2xl p-6 bg-slate-50/50 text-start shadow-inner">
+              {/* Receipt Body Area configured for standard 58mm/80mm POS Thermal printers */}
+              <div 
+                id="thermal-print-area" 
+                className="flex flex-col gap-4 text-xs font-semibold text-slate-500 border border-slate-200/80 rounded-2xl p-6 bg-slate-50/50 text-start shadow-inner"
+              >
                 <div className="text-center pb-3 border-b border-slate-200 border-dashed">
-                  <h4 className="font-black text-slate-800 text-md">{db.settings.businessName}</h4>
+                  <h4 className="font-black text-slate-800 text-md uppercase">{db.settings.businessName}</h4>
                   <span className="text-[9px] uppercase font-bold text-slate-400 mt-1 block">*** {t("invoiceLabel")} ***</span>
                 </div>
 
@@ -548,10 +610,10 @@ export default function POSPage() {
                   </div>
                   <div className="flex justify-between">
                     <span>Date:</span>
-                    <span className="font-bold text-slate-700">{new Date(receiptOrder.date).toLocaleString()}</span>
+                    <span className="font-bold text-slate-700">{new Date(receiptOrder.date).toLocaleString(db.settings.language === "ar" ? "ar-EG" : "en-US")}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Billed Customer:</span>
+                    <span>Customer Billed:</span>
                     <span className="font-bold text-slate-700">{receiptOrder.customerName}</span>
                   </div>
                   <div className="flex justify-between">
@@ -613,16 +675,17 @@ export default function POSPage() {
               </div>
 
               {/* Receipt Modal actions */}
-              <div className="flex items-center justify-end gap-3 border-t border-slate-100 mt-6 pt-4">
+              <div className="flex items-center justify-end gap-3 border-t border-slate-100 mt-6 pt-4 no-print">
                 <button
-                  onClick={() => alert("Printing pipeline simulated. Receipt sent to local registers.")}
-                  className="text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 cursor-pointer shadow-sm"
+                  onClick={triggerReceiptPrint}
+                  className="text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl px-4 py-2.5 cursor-pointer shadow-md flex items-center gap-1.5"
                 >
-                  {t("printTicketBtn")}
+                  <span>🖨️</span>
+                  <span>{isRtl ? "طباعة الفاتورة" : "Print Ticket"}</span>
                 </button>
                 <button
                   onClick={() => setReceiptOrder(null)}
-                  className="text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl px-4 py-2.5 cursor-pointer shadow-md shadow-blue-500/10"
+                  className="text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 cursor-pointer shadow-sm"
                 >
                   {t("closeReceiptBtn")}
                 </button>
