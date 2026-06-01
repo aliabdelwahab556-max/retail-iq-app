@@ -11,8 +11,8 @@ export default function AuthPage() {
   const router = useRouter();
   const { t, isRtl } = useI18n();
   const { db, updateDB, loginWithGoogle } = useDatabase();
-  const [email, setEmail] = useState("ahmed@retailiq.com");
-  const [password, setPassword] = useState("password123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
 
   const handleLoginSubmit = (e: React.FormEvent) => {

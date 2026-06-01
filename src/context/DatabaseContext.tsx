@@ -80,32 +80,26 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   };
 
   const loginWithGoogle = async () => {
-    const config = db.firebaseConfig;
-    if (config && config.apiKey && config.projectId) {
-      try {
-        const { getFirebaseAuth } = await import("@/lib/firebase");
-        const auth = getFirebaseAuth(config);
-        if (auth) {
-          const { signInWithPopup, GoogleAuthProvider } = await import("firebase/auth");
-          const provider = new GoogleAuthProvider();
-          const result = await signInWithPopup(auth, provider);
-          const user = result.user;
-          return {
-            name: user.displayName || user.email?.split("@")[0] || "Ahmed",
-            email: user.email || "ahmed@retailiq.com",
-            success: true
-          };
-        }
-      } catch (err) {
-        console.error("Firebase Google Auth failed:", err);
+    try {
+      const { getFirebaseAuth } = await import("@/lib/firebase");
+      // Use custom credentials if configured, otherwise allow getFirebaseAuth to use fallbacks for testing the real Google picker popup
+      const auth = getFirebaseAuth(db.firebaseConfig.apiKey ? db.firebaseConfig : undefined);
+      if (auth) {
+        const { signInWithPopup, GoogleAuthProvider } = await import("firebase/auth");
+        const provider = new GoogleAuthProvider();
+        const result = await signInWithPopup(auth, provider);
+        const user = result.user;
+        return {
+          name: user.displayName || user.email?.split("@")[0] || "Ahmed",
+          email: user.email || "ahmed@retailiq.com",
+          success: true
+        };
       }
+    } catch (err) {
+      console.error("Firebase Google Auth failed:", err);
+      throw err;
     }
-    // Fallback to simulated login if Firebase is not configured yet
-    return {
-      name: "Ahmed",
-      email: "ahmed@retailiq.com",
-      success: true
-    };
+    throw new Error("Firebase Auth could not be initialized.");
   };
 
   return (
