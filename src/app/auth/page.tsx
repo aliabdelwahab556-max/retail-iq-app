@@ -10,34 +10,47 @@ import { Lock, Mail, ChevronLeft } from "lucide-react";
 export default function AuthPage() {
   const router = useRouter();
   const { t, isRtl } = useI18n();
-  const { db, updateDB, loginWithGoogle } = useDatabase();
+  const { db, updateDB, loginWithGoogle, loginWithEmail } = useDatabase();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
+  const [loading, setLoading] = useState(false);
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email) return;
-    executeMockSession(email);
-  };
-
-  const handleGoogleAuth = async () => {
+    if (!email || !password) return;
+    setLoading(true);
     try {
-      const result = await loginWithGoogle();
+      const result = await loginWithEmail(email, password, authMode);
       if (result.success) {
-        executeMockSession(result.name);
+        initializeUserSession(result.name, result.email);
       }
-    } catch (err) {
-      console.error("Authentication popup failed:", err);
-      executeMockSession("Ahmed");
+    } catch (err: any) {
+      console.error("Credentials Authentication failed:", err);
+      alert(isRtl ? `فشلت عملية المصادقة: ${err.message}` : `Authentication failed: ${err.message}`);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const executeMockSession = (usernameInput: string) => {
-    // Dynamic naming resolution
+  const handleGoogleAuth = async () => {
+    setLoading(true);
+    try {
+      const result = await loginWithGoogle();
+      if (result.success) {
+        initializeUserSession(result.name, result.email);
+      }
+    } catch (err: any) {
+      console.error("Authentication popup failed:", err);
+      alert(isRtl ? `فشل تسجيل الدخول عبر Google: ${err.message}` : `Google Authentication failed: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const initializeUserSession = (usernameInput: string, emailInput: string) => {
     const managerName = usernameInput.includes("@") ? usernameInput.split("@")[0] : usernameInput;
     
-    // Save to global context state database
     const updatedSettings = {
       ...db.settings,
       managerName: managerName.charAt(0).toUpperCase() + managerName.slice(1)
@@ -46,7 +59,7 @@ export default function AuthPage() {
     const newLogs = [
       {
         timestamp: new Date().toISOString(),
-        task: `${updatedSettings.managerName} login session established successfully via Google OAuth.`,
+        task: `${updatedSettings.managerName} (${emailInput || "Google Session"}) login session established successfully.`,
         channel: "Security",
         value: 0
       },
@@ -59,7 +72,6 @@ export default function AuthPage() {
       logs: newLogs
     });
 
-    // Route directly to operational workspace dashboard!
     router.push("/dashboard");
   };
 

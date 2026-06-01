@@ -9,6 +9,7 @@ interface DatabaseContextType {
   resetDatabase: () => void;
   syncToFirebase: (newDb: RetailDB) => Promise<void>;
   loginWithGoogle: () => Promise<{ name: string; email: string; success: boolean }>;
+  loginWithEmail: (email: string, pass: string, mode: "login" | "signup") => Promise<{ name: string; email: string; success: boolean }>;
 }
 
 const DatabaseContext = createContext<DatabaseContextType | undefined>(undefined);
@@ -82,7 +83,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   const loginWithGoogle = async () => {
     try {
       const { getFirebaseAuth } = await import("@/lib/firebase");
-      // Use custom credentials if configured, otherwise allow getFirebaseAuth to use fallbacks for testing the real Google picker popup
+      // Use custom credentials if configured, otherwise falls back to environment variables
       const auth = getFirebaseAuth(db.firebaseConfig.apiKey ? db.firebaseConfig : undefined);
       if (auth) {
         const { signInWithPopup, GoogleAuthProvider } = await import("firebase/auth");
@@ -90,8 +91,8 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
         const result = await signInWithPopup(auth, provider);
         const user = result.user;
         return {
-          name: user.displayName || user.email?.split("@")[0] || "Ahmed",
-          email: user.email || "ahmed@retailiq.com",
+          name: user.displayName || user.email?.split("@")[0] || "User",
+          email: user.email || "",
           success: true
         };
       }
@@ -99,11 +100,37 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       console.error("Firebase Google Auth failed:", err);
       throw err;
     }
-    throw new Error("Firebase Auth could not be initialized.");
+    throw new Error("Firebase Auth could not be initialized. Please verify your settings or Environment Variables.");
+  };
+
+  const loginWithEmail = async (email: string, pass: string, mode: "login" | "signup") => {
+    try {
+      const { getFirebaseAuth } = await import("@/lib/firebase");
+      const auth = getFirebaseAuth(db.firebaseConfig.apiKey ? db.firebaseConfig : undefined);
+      if (auth) {
+        const { signInWithEmailAndPassword, createUserWithEmailAndPassword } = await import("firebase/auth");
+        let userCredential;
+        if (mode === "login") {
+          userCredential = await signInWithEmailAndPassword(auth, email, pass);
+        } else {
+          userCredential = await createUserWithEmailAndPassword(auth, email, pass);
+        }
+        const user = userCredential.user;
+        return {
+          name: user.displayName || user.email?.split("@")[0] || "User",
+          email: user.email || "",
+          success: true
+        };
+      }
+    } catch (err) {
+      console.error("Firebase Email Auth failed:", err);
+      throw err;
+    }
+    throw new Error("Firebase Auth could not be initialized. Please verify your settings or Environment Variables.");
   };
 
   return (
-    <DatabaseContext.Provider value={{ db, updateDB, resetDatabase, syncToFirebase, loginWithGoogle }}>
+    <DatabaseContext.Provider value={{ db, updateDB, resetDatabase, syncToFirebase, loginWithGoogle, loginWithEmail }}>
       {children}
     </DatabaseContext.Provider>
   );

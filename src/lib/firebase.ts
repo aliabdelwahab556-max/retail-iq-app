@@ -3,8 +3,8 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 export function getFirebaseApp(config?: { apiKey: string; projectId: string }) {
-  const apiKey = config?.apiKey || process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyAs-CENTRAL-RETAILIQ-KEY-FALLBACK-2026";
-  const projectId = config?.projectId || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "retail-iq-central";
+  const apiKey = config?.apiKey || process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+  const projectId = config?.projectId || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
 
   if (!apiKey || !projectId) {
     return null;
