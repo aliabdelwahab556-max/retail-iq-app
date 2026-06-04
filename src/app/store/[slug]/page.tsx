@@ -33,6 +33,11 @@ export default function StorefrontPage() {
   const [cart, setCart] = useState<{ product: Product; qty: number }[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
   const [checkoutStep, setCheckoutStep] = useState<"shopping" | "billing" | "success">("shopping");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   
   // Customer Details
   const [customerName, setCustomerName] = useState("");
@@ -523,7 +528,7 @@ export default function StorefrontPage() {
                       <span>{paymentMethod.split(" ")[0]}</span>
                     </div>
                     <div>Receipt Number: {completedOrderId}</div>
-                    <div>Date: {new Date().toLocaleString()}</div>
+                    <div>Date: {mounted ? new Date().toLocaleString() : ""}</div>
                     <div>Billing Name: {customerName}</div>
                     <div className="font-bold text-blue-600 border-t border-slate-200 pt-2 mt-1.5 flex justify-between text-xs">
                       <span>Billed Amount</span>

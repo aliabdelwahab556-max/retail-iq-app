@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useDatabase } from "@/context/DatabaseContext";
 import { useI18n } from "@/hooks/useI18n";
 import { FileText, FileSpreadsheet, Download, RefreshCw, Sparkles, Clock, Landmark } from "lucide-react";
@@ -8,6 +8,11 @@ import { FileText, FileSpreadsheet, Download, RefreshCw, Sparkles, Clock, Landma
 export default function ReportsPage() {
   const { db } = useDatabase();
   const { t, isRtl } = useI18n();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const cSymbol = db.settings.currency;
 
@@ -130,7 +135,7 @@ export default function ReportsPage() {
                 db.logs.map((log, idx) => (
                   <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-4 py-3 text-slate-400 font-medium">
-                      {new Date(log.timestamp).toLocaleString()}
+                      {mounted ? new Date(log.timestamp).toLocaleString() : ""}
                     </td>
                     <td className="px-4 py-3 font-bold text-slate-700">{log.task}</td>
                     <td className="px-4 py-3 text-center">

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useDatabase } from "@/context/DatabaseContext";
 import { useI18n } from "@/hooks/useI18n";
 import { motion, AnimatePresence } from "framer-motion";
@@ -28,6 +28,11 @@ export default function POSPage() {
   const [receiptOrder, setReceiptOrder] = useState<Order | null>(null);
   const [receiptLoyaltyEarned, setReceiptLoyaltyEarned] = useState<number>(0);
   const [receiptLoyaltyNewBalance, setReceiptLoyaltyNewBalance] = useState<number>(0);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Stripe Payment States
   const [showStripeModal, setShowStripeModal] = useState(false);
@@ -610,7 +615,7 @@ export default function POSPage() {
                   </div>
                   <div className="flex justify-between">
                     <span>Date:</span>
-                    <span className="font-bold text-slate-700">{new Date(receiptOrder.date).toLocaleString(db.settings.language === "ar" ? "ar-EG" : "en-US")}</span>
+                    <span className="font-bold text-slate-700">{mounted ? new Date(receiptOrder.date).toLocaleString(db.settings.language === "ar" ? "ar-EG" : "en-US") : ""}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Customer Billed:</span>

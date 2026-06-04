@@ -12,7 +12,7 @@ interface Message {
 }
 
 export default function AiCopilotPage() {
-  const { db } = useDatabase();
+  const { db, updateDB } = useDatabase();
   const { t, isRtl } = useI18n();
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -26,6 +26,11 @@ export default function AiCopilotPage() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -34,6 +39,58 @@ export default function AiCopilotPage() {
   useEffect(() => {
     scrollToBottom();
   }, [messages, loading]);
+
+  const applyDiscount = (target: string, percentage: number) => {
+    const updatedProducts = db.products.map(p => {
+      const isMatch = target === "all" || 
+                      p.category.toLowerCase() === target.toLowerCase() ||
+                      p.name.toLowerCase().includes(target.toLowerCase()) ||
+                      p.sku.toLowerCase() === target.toLowerCase();
+      if (isMatch) {
+        const discountAmount = p.price * (percentage / 100);
+        return {
+          ...p,
+          price: Number((p.price - discountAmount).toFixed(2))
+        };
+      }
+      return p;
+    });
+
+    const logMsg = isRtl
+      ? `تم تطبيق خصم بقيمة ${percentage}% على ${target === "all" ? "جميع المنتجات" : target} بواسطة المستشار الذكي.`
+      : `AI Copilot applied a ${percentage}% discount on ${target === "all" ? "all products" : target}.`;
+
+    const newLogs = [
+      {
+        timestamp: new Date().toISOString(),
+        task: logMsg,
+        channel: "System",
+        value: 0
+      },
+      ...db.logs
+    ];
+
+    updateDB({
+      ...db,
+      products: updatedProducts,
+      logs: newLogs
+    });
+
+    try {
+      const { getFirebaseFirestore } = require("@/lib/firebase");
+      const dbFirestore = getFirebaseFirestore();
+      if (dbFirestore && db.firebaseConnected && db.settings.storeSlug) {
+        const { doc, setDoc } = require("firebase/firestore");
+        const storeRef = doc(dbFirestore, "retailiq_stores", db.settings.storeSlug);
+        setDoc(storeRef, {
+          products: updatedProducts,
+          lastUpdated: new Date().toISOString()
+        }, { merge: true });
+      }
+    } catch (e) {
+      console.error("AI discount sync to Firestore failed:", e);
+    }
+  };
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,9 +143,19 @@ export default function AiCopilotPage() {
         const result = await model.generateContent([systemPrompt, userText]);
         const responseText = await result.response.text();
 
+        const discountRegex = /\[\[DISCOUNT:(.*?):(\d+)\]\]/;
+        const match = responseText.match(discountRegex);
+        let cleanText = responseText;
+        if (match) {
+          const target = match[1];
+          const percentage = parseInt(match[2], 10);
+          applyDiscount(target, percentage);
+          cleanText = responseText.replace(discountRegex, "").trim();
+        }
+
         setMessages(prev => [...prev, {
           sender: "bot",
-          text: responseText,
+          text: cleanText,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }]);
       } catch (err: any) {
@@ -126,7 +193,26 @@ export default function AiCopilotPage() {
     let responseText = "";
 
     if (isRtl) {
-      if (query.includes("وصف") || query.includes("اكتب") || query.includes("description")) {
+      if (query.includes("خصم") || query.includes("discount")) {
+        const pctMatch = query.match(/(\d+)/);
+        const percentage = pctMatch ? parseInt(pctMatch[1], 10) : 5;
+        let target = "all";
+        let targetAr = "جميع المنتجات";
+        if (query.includes("إلكترونيات") || query.includes("electronics")) {
+          target = "Electronics";
+          targetAr = "الإلكترونيات";
+        } else if (query.includes("ملابس") || query.includes("apparel") || query.includes("clothes")) {
+          target = "Apparel";
+          targetAr = "الملابس";
+        } else if (query.includes("مجوهرات") || query.includes("jewelry")) {
+          target = "Jewelry";
+          targetAr = "المجوهرات";
+        } else if (query.includes("إكسسوارات") || query.includes("accessories")) {
+          target = "Accessories";
+          targetAr = "الإكسسوارات";
+        }
+        responseText = `لقد قمت بتطبيق خصم بنسبة **${percentage}%** على **${targetAr}** بنجاح! [[DISCOUNT:${target}:${percentage}]]`;
+      } else if (query.includes("وصف") || query.includes("اكتب") || query.includes("description")) {
         responseText = `📝 **وصف تسويقي مقترح للمنتج (Fallback):**\nمنتج استثنائي يجمع بين المتانة والتصميم العصري الأنيق. تم تصنيعه باستخدام خامات عالية الجودة لضمان أداء مستدام، وهو الرفيق المثالي لأسلوب حياتك اليومي. \n\n*ملاحظة: يرجى تفعيل مفتاح Gemini API للحصول على أوصاف ذكية ومخصصة بالكامل.*`;
       } else if (query.includes("تحليل") || query.includes("أرباح") || query.includes("ربح") || query.includes("profit")) {
         responseText = `📊 **تحليل الأرباح والمبيعات الموحد:**\n- إجمالي المبيعات الموحدة: **${cSymbol}${totalRevenue.toLocaleString(undefined, {minimumFractionDigits: 2})}**\n- صافي الأرباح التشغيلية: **${cSymbol}${netProfit.toLocaleString(undefined, {minimumFractionDigits: 2})}**\n- نسبة هامش الربح التقريبية: **26%** من إجمالي المبيعات.\n- المنتج الأكثر مبيعاً: **${bestSelling}**.\n- حالة المخزون: يوجد سلع ناقصة بحاجة لإعادة تعبئة (**${lowStockItems || "لا يوجد"}**).`;
@@ -140,7 +226,26 @@ export default function AiCopilotPage() {
         responseText = `لقد قمت بتحليل استفسارك عن "${userText}". إيراداتك الإجمالية تبلغ **${cSymbol}${totalRevenue.toLocaleString(undefined, {minimumFractionDigits: 2})}**، وصافي الأرباح **${cSymbol}${netProfit.toLocaleString(undefined, {minimumFractionDigits: 2})}**. السلعة الأفضل مبيعاً هي **${bestSelling}**، وهناك سلع ناقصة: **[${lowStockItems}]**.`;
       }
     } else {
-      if (query.includes("description") || query.includes("write") || query.includes("generate")) {
+      if (query.includes("discount") || query.includes("promo")) {
+        const pctMatch = query.match(/(\d+)/);
+        const percentage = pctMatch ? parseInt(pctMatch[1], 10) : 5;
+        let target = "all";
+        let targetEn = "all products";
+        if (query.includes("electronics")) {
+          target = "Electronics";
+          targetEn = "Electronics";
+        } else if (query.includes("apparel") || query.includes("clothes")) {
+          target = "Apparel";
+          targetEn = "Apparel";
+        } else if (query.includes("jewelry")) {
+          target = "Jewelry";
+          targetEn = "Jewelry";
+        } else if (query.includes("accessories")) {
+          target = "Accessories";
+          targetEn = "Accessories";
+        }
+        responseText = `Successfully applied a **${percentage}%** discount on **${targetEn}**! [[DISCOUNT:${target}:${percentage}]]`;
+      } else if (query.includes("description") || query.includes("write") || query.includes("generate")) {
         responseText = `📝 **Suggested Marketing Description (Fallback):**\nAn exceptional product combining durablity with sleek modern aesthetics. Engineered using premium materials to ensure high performance, it is the perfect companion for your daily needs. \n\n*Note: Please configure a Gemini API key in Settings to unlock custom generative AI descriptions.*`;
       } else if (query.includes("analyze") || query.includes("profit") || query.includes("earn")) {
         responseText = `📊 **Sales & Margin Analysis:**\n- Combined Revenue: **${cSymbol}${totalRevenue.toLocaleString(undefined, {minimumFractionDigits: 2})}**\n- Net Operating Profit: **${cSymbol}${netProfit.toLocaleString(undefined, {minimumFractionDigits: 2})}**\n- Profit Margin: approx. **26%** of total turnover.\n- Top Selling Item: **${bestSelling}**.\n- Low Stock Warning: **[${lowStockItems || "None"}]**.`;
@@ -155,9 +260,19 @@ export default function AiCopilotPage() {
       }
     }
 
+    const discountRegex = /\[\[DISCOUNT:(.*?):(\d+)\]\]/;
+    const match = responseText.match(discountRegex);
+    let cleanText = responseText;
+    if (match) {
+      const target = match[1];
+      const percentage = parseInt(match[2], 10);
+      applyDiscount(target, percentage);
+      cleanText = responseText.replace(discountRegex, "").trim();
+    }
+
     setMessages(prev => [...prev, {
       sender: "bot",
-      text: responseText,
+      text: cleanText,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }]);
   };
@@ -203,7 +318,7 @@ export default function AiCopilotPage() {
                   <div className={`rounded-2xl px-4 py-3 text-xs leading-relaxed font-semibold ${isBot ? "bg-slate-50 border border-slate-200 text-slate-700" : "bg-blue-600 text-white shadow-md shadow-blue-500/10"}`}>
                     <p className="whitespace-pre-line">{msg.text}</p>
                   </div>
-                  <span className="text-[9px] text-slate-400 font-bold px-2 self-start">{msg.timestamp}</span>
+                  <span className="text-[9px] text-slate-400 font-bold px-2 self-start">{mounted ? msg.timestamp : ""}</span>
                 </div>
               </div>
             );

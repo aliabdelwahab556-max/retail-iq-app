@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useI18n } from "@/hooks/useI18n";
 import { useDatabase } from "@/context/DatabaseContext";
@@ -20,6 +20,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [accountDigestOpen, setAccountDigestOpen] = useState(false);
   const [weeklyReportOpen, setWeeklyReportOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleLogout = () => {
     router.push("/");
@@ -336,7 +341,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                           db.orders.map((o) => (
                             <tr key={o.id}>
                               <td className="px-4 py-3 text-slate-500 font-medium">
-                                {new Date(o.date).toLocaleDateString(language === "ar" ? "ar-EG" : "en-US", { month: "short", day: "numeric" })}
+                                {mounted ? new Date(o.date).toLocaleDateString(language === "ar" ? "ar-EG" : "en-US", { month: "short", day: "numeric" }) : ""}
                               </td>
                               <td className="px-4 py-3 font-bold text-slate-800">{o.id}</td>
                               <td className="px-4 py-3">{o.customerName}</td>
