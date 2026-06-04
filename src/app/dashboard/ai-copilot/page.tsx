@@ -59,15 +59,7 @@ export default function AiCopilotPage() {
     const bestSelling = [...db.products].sort((a,b) => b.sold - a.sold)[0]?.name || "None";
     const netProfit = (7432.00 - 495.00) + db.orders.reduce((sum, o) => sum + (o.total * 0.26), 0) - 1100.00;
 
-    const geminiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || db.settings.geminiApiKey;
-    // Use Gemini API client-side if a key is available
-    if (geminiKey) {
-      try {
-        const { GoogleGenerativeAI } = await import("@google/generative-ai");
-        const genAI = new GoogleGenerativeAI(geminiKey);
-        const model = genAI.getGenerativeModel({ model: db.settings.geminiModel || "gemini-1.5-flash" });
-
-        const systemPrompt = `You are the RetailIQ AI Business Intelligence Assistant. You are currently connected to the live database of the merchant's retail operating system. 
+    const systemPrompt = `You are the RetailIQ AI Business Intelligence Assistant. You are currently connected to the live database of the merchant's retail operating system.
         Here is the actual database state to answer questions accurately:
         - Merchant Manager Name: ${db.settings.managerName}
         - Base Currency: ${cSymbol}
@@ -83,34 +75,49 @@ export default function AiCopilotPage() {
         When asked to generate a product description, draft a highly compelling marketing description suitable for e-commerce.
         When asked to analyze sales/margins, offer a structured breakdown of revenues, net profits, margins, best sellers, and actions to take.`;
 
-        const result = await model.generateContent([systemPrompt, userText]);
-        const responseText = await result.response.text();
+    try {
+      const res = await fetch("/api/gemini", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          systemPrompt,
+          userText,
+          modelName: db.settings.geminiModel || "gemini-1.5-flash",
+          userApiKey: db.settings.geminiApiKey || undefined,
+        }),
+      });
 
-        setMessages(prev => [...prev, {
-          sender: "bot",
-          text: responseText,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        }]);
-      } catch (err: any) {
-        console.error("Gemini API call error:", err);
-        setMessages(prev => [...prev, {
-          sender: "bot",
-          text: isRtl 
-            ? `حدث خطأ أثناء الاتصال بـ Gemini API: ${err.message || err}. سأقوم بالرد عليك باستخدام المحلل الذكي الداخلي للمستودع.` 
-            : `Failed to call Gemini API: ${err.message || err}. Falling back to internal warehouse intelligence analyzer.`,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        }]);
-        // Trigger fallback response
-        triggerFallback(userText);
-      } finally {
-        setLoading(false);
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        if (errData.error === "no_key") {
+          // No key configured anywhere — silently use local intelligence
+          setTimeout(() => {
+            triggerFallback(userText);
+            setLoading(false);
+          }, 1000);
+          return;
+        }
+        throw new Error(errData.error || `HTTP ${res.status}`);
       }
-    } else {
-      // Simulate/Trigger smart localized B2B responses using active database parameters
-      setTimeout(() => {
-        triggerFallback(userText);
-        setLoading(false);
-      }, 1000);
+
+      const data = await res.json();
+      setMessages(prev => [...prev, {
+        sender: "bot",
+        text: data.text,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }]);
+    } catch (err: any) {
+      console.error("Gemini API call error:", err);
+      setMessages(prev => [...prev, {
+        sender: "bot",
+        text: isRtl
+          ? `حدث خطأ أثناء الاتصال بـ Gemini API: ${err.message || err}. سأقوم بالرد عليك باستخدام المحلل الذكي الداخلي للمستودع.`
+          : `Failed to call Gemini API: ${err.message || err}. Falling back to internal warehouse intelligence analyzer.`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }]);
+      triggerFallback(userText);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -179,7 +186,7 @@ export default function AiCopilotPage() {
           </p>
         </div>
 
-        {!(process.env.NEXT_PUBLIC_GEMINI_API_KEY || db.settings.geminiApiKey) && (
+        {!db.settings.geminiApiKey && (
           <div className="flex items-center gap-2 bg-blue-50 border border-blue-200/80 rounded-xl px-3 py-1.5 text-[10px] text-blue-700 font-bold self-start">
             <AlertCircle className="w-3.5 h-3.5" />
             <span>{isRtl ? "مستشار ذكي داخلي (أدخل مفتاح Gemini في الإعدادات للتفعيل السحابي)" : "Using local intelligence (Add Gemini Key in settings for live NLP)"}</span>
