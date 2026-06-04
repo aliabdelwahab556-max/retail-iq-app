@@ -1,6 +1,7 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
 export function getFirebaseApp(config?: { apiKey: string; projectId: string }) {
   const apiKey = config?.apiKey || process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
@@ -32,4 +33,9 @@ export function getFirebaseAuth(config?: { apiKey: string; projectId: string }) 
 export function getFirebaseFirestore(config?: { apiKey: string; projectId: string }) {
   const app = getFirebaseApp(config);
   return app ? getFirestore(app) : null;
+}
+
+export function getFirebaseStorage(config?: { apiKey: string; projectId: string }) {
+  const app = getFirebaseApp(config);
+  return app ? getStorage(app) : null;
 }

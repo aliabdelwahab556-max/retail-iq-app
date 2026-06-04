@@ -59,11 +59,12 @@ export default function AiCopilotPage() {
     const bestSelling = [...db.products].sort((a,b) => b.sold - a.sold)[0]?.name || "None";
     const netProfit = (7432.00 - 495.00) + db.orders.reduce((sum, o) => sum + (o.total * 0.26), 0) - 1100.00;
 
+    const geminiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || db.settings.geminiApiKey;
     // Use Gemini API client-side if a key is available
-    if (db.settings.geminiApiKey) {
+    if (geminiKey) {
       try {
         const { GoogleGenerativeAI } = await import("@google/generative-ai");
-        const genAI = new GoogleGenerativeAI(db.settings.geminiApiKey);
+        const genAI = new GoogleGenerativeAI(geminiKey);
         const model = genAI.getGenerativeModel({ model: db.settings.geminiModel || "gemini-1.5-flash" });
 
         const systemPrompt = `You are the RetailIQ AI Business Intelligence Assistant. You are currently connected to the live database of the merchant's retail operating system. 
@@ -78,7 +79,9 @@ export default function AiCopilotPage() {
         - Damaged freight carrying loss: ${cSymbol}1,100.00 (freight damage to a Diamond Ring)
         - Connected to Shopify e-commerce: ${db.shopifyConnected ? "Yes" : "No"}
 
-        Keep responses business-focused, professional, extremely helpful, concise, and calm. Support bilingual queries (English or Arabic). If the user asks in Arabic, reply in Cairo dialect Arabic.`;
+        Keep responses business-focused, professional, extremely helpful, concise, and calm. Support bilingual queries (English or Arabic). If the user asks in Arabic, reply in Cairo dialect Arabic.
+        When asked to generate a product description, draft a highly compelling marketing description suitable for e-commerce.
+        When asked to analyze sales/margins, offer a structured breakdown of revenues, net profits, margins, best sellers, and actions to take.`;
 
         const result = await model.generateContent([systemPrompt, userText]);
         const responseText = await result.response.text();
@@ -123,8 +126,10 @@ export default function AiCopilotPage() {
     let responseText = "";
 
     if (isRtl) {
-      if (query.includes("أرباح") || query.includes("ربح") || query.includes("profit")) {
-        responseText = `صافي الأرباح الموحدة الموثقة حالياً هي **${cSymbol}${netProfit.toLocaleString(undefined, {minimumFractionDigits: 2})}**. تم احتساب هذا متضمناً خسارة التلفيات غير المتكررة البالغة **${cSymbol}1,100.00** بسبب ضرر الشحن الإقليمي لخاتم الماس.`;
+      if (query.includes("وصف") || query.includes("اكتب") || query.includes("description")) {
+        responseText = `📝 **وصف تسويقي مقترح للمنتج (Fallback):**\nمنتج استثنائي يجمع بين المتانة والتصميم العصري الأنيق. تم تصنيعه باستخدام خامات عالية الجودة لضمان أداء مستدام، وهو الرفيق المثالي لأسلوب حياتك اليومي. \n\n*ملاحظة: يرجى تفعيل مفتاح Gemini API للحصول على أوصاف ذكية ومخصصة بالكامل.*`;
+      } else if (query.includes("تحليل") || query.includes("أرباح") || query.includes("ربح") || query.includes("profit")) {
+        responseText = `📊 **تحليل الأرباح والمبيعات الموحد:**\n- إجمالي المبيعات الموحدة: **${cSymbol}${totalRevenue.toLocaleString(undefined, {minimumFractionDigits: 2})}**\n- صافي الأرباح التشغيلية: **${cSymbol}${netProfit.toLocaleString(undefined, {minimumFractionDigits: 2})}**\n- نسبة هامش الربح التقريبية: **26%** من إجمالي المبيعات.\n- المنتج الأكثر مبيعاً: **${bestSelling}**.\n- حالة المخزون: يوجد سلع ناقصة بحاجة لإعادة تعبئة (**${lowStockItems || "لا يوجد"}**).`;
       } else if (query.includes("مخزن") || query.includes("بضاعة") || query.includes("stock") || query.includes("نقص")) {
         responseText = db.products.filter(p => p.stock <= 9).length > 0 
           ? `السلع التي أوشكت على النفاد حالياً هي: **${lowStockItems}**. يوصى بشدة بالتنسيق مع الموردين المعنيين لإرسال أوامر توريد جديدة لتجنب أي توقف.`
@@ -135,8 +140,10 @@ export default function AiCopilotPage() {
         responseText = `لقد قمت بتحليل استفسارك عن "${userText}". إيراداتك الإجمالية تبلغ **${cSymbol}${totalRevenue.toLocaleString(undefined, {minimumFractionDigits: 2})}**، وصافي الأرباح **${cSymbol}${netProfit.toLocaleString(undefined, {minimumFractionDigits: 2})}**. السلعة الأفضل مبيعاً هي **${bestSelling}**، وهناك سلع ناقصة: **[${lowStockItems}]**.`;
       }
     } else {
-      if (query.includes("profit") || query.includes("earn")) {
-        responseText = `Your current Net Consolidated Operating Profit is **${cSymbol}${netProfit.toLocaleString(undefined, {minimumFractionDigits: 2})}**. This includes the damaged stock freight write-off of **${cSymbol}1,100.00** for the Diamond Ring.`;
+      if (query.includes("description") || query.includes("write") || query.includes("generate")) {
+        responseText = `📝 **Suggested Marketing Description (Fallback):**\nAn exceptional product combining durablity with sleek modern aesthetics. Engineered using premium materials to ensure high performance, it is the perfect companion for your daily needs. \n\n*Note: Please configure a Gemini API key in Settings to unlock custom generative AI descriptions.*`;
+      } else if (query.includes("analyze") || query.includes("profit") || query.includes("earn")) {
+        responseText = `📊 **Sales & Margin Analysis:**\n- Combined Revenue: **${cSymbol}${totalRevenue.toLocaleString(undefined, {minimumFractionDigits: 2})}**\n- Net Operating Profit: **${cSymbol}${netProfit.toLocaleString(undefined, {minimumFractionDigits: 2})}**\n- Profit Margin: approx. **26%** of total turnover.\n- Top Selling Item: **${bestSelling}**.\n- Low Stock Warning: **[${lowStockItems || "None"}]**.`;
       } else if (query.includes("stock") || query.includes("inventory") || query.includes("low")) {
         responseText = db.products.filter(p => p.stock <= 9).length > 0
           ? `The following products are currently low in stock: **${lowStockItems}**. Consider scheduling a restocking order PO soon.`
@@ -172,7 +179,7 @@ export default function AiCopilotPage() {
           </p>
         </div>
 
-        {!db.settings.geminiApiKey && (
+        {!(process.env.NEXT_PUBLIC_GEMINI_API_KEY || db.settings.geminiApiKey) && (
           <div className="flex items-center gap-2 bg-blue-50 border border-blue-200/80 rounded-xl px-3 py-1.5 text-[10px] text-blue-700 font-bold self-start">
             <AlertCircle className="w-3.5 h-3.5" />
             <span>{isRtl ? "مستشار ذكي داخلي (أدخل مفتاح Gemini في الإعدادات للتفعيل السحابي)" : "Using local intelligence (Add Gemini Key in settings for live NLP)"}</span>
@@ -215,8 +222,32 @@ export default function AiCopilotPage() {
           <div ref={messagesEndRef} />
         </div>
 
+        {/* QUICK SUGGESTIONS */}
+        <div className="px-6 py-3 bg-slate-50/50 border-t border-slate-100 flex flex-wrap gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              setInput(isRtl ? "قم بتحليل المبيعات والأرباح لمتجري" : "Analyze my sales and margins");
+            }}
+            disabled={loading}
+            className="text-[10px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-xl border border-blue-100 cursor-pointer disabled:opacity-50 transition-all text-start"
+          >
+            {isRtl ? "📊 تحليل المبيعات والأرباح" : "📊 Analyze sales & margins"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setInput(isRtl ? "اكتب وصفاً تسويقياً احترافياً لمنتج: " : "Generate a professional product description for: ");
+            }}
+            disabled={loading}
+            className="text-[10px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-xl border border-indigo-100 cursor-pointer disabled:opacity-50 transition-all text-start"
+          >
+            {isRtl ? "✍️ توليد وصف منتج" : "✍️ Generate description"}
+          </button>
+        </div>
+
         {/* INPUT FORM PANEL */}
-        <form onSubmit={handleSend} className="border-t border-slate-200 p-4 bg-slate-50 flex gap-3 items-center">
+        <form onSubmit={handleSend} className="border-t border-slate-200 p-4 bg-slate-50 flex gap-3 items-center w-full">
           <input
             type="text"
             className="flex-1 bg-white border border-slate-200 rounded-xl px-4 py-3 text-xs font-semibold text-slate-700 outline-none hover:border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all shadow-sm"

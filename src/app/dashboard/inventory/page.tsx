@@ -14,6 +14,10 @@ export default function InventoryPage() {
   const [activeCategory, setActiveCategory] = useState("all");
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  
+  // Image Upload State
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   // Form State
   const [name, setName] = useState("");
@@ -36,13 +40,35 @@ export default function InventoryPage() {
     return matchesCategory && matchesSearch;
   });
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!name || !sku) {
       alert("Please provide a name and SKU code.");
       return;
     }
+
+    setUploading(true);
+    let uploadedUrl = "";
+    
+    // Upload image to Firebase Storage if selected
+    if (imageFile) {
+      try {
+        const { getFirebaseStorage } = await import("@/lib/firebase");
+        const storage = getFirebaseStorage(db.firebaseConfig);
+        if (storage) {
+          const { ref, uploadBytes, getDownloadURL } = await import("firebase/storage");
+          const imgRef = ref(storage, `retailiq_products/${Date.now()}-${imageFile.name}`);
+          const uploadResult = await uploadBytes(imgRef, imageFile);
+          uploadedUrl = await getDownloadURL(uploadResult.ref);
+        }
+      } catch (err) {
+        console.error("Firebase Storage image upload failed, falling back:", err);
+      }
+    }
+
+    // Determine final imageUrl
+    const imageUrl = uploadedUrl || editingProduct?.imageUrl || "";
 
     if (editingProduct) {
       // Modify existing product
@@ -56,7 +82,8 @@ export default function InventoryPage() {
             price: Number(price),
             cost: Number(cost),
             stock: Number(stock),
-            emoji
+            emoji,
+            imageUrl
           };
         }
         return p;
@@ -65,7 +92,7 @@ export default function InventoryPage() {
       const newLogs = [
         {
           timestamp: new Date().toISOString(),
-          task: `Catalog SKU ${sku} (${name}) updated by manager Ahmed.`,
+          task: `Catalog SKU ${sku} (${name}) updated by manager ${db.settings.managerName}.`,
           channel: "Inventory",
           value: Number(price)
         },
@@ -88,7 +115,8 @@ export default function InventoryPage() {
         cost: Number(cost),
         stock: Number(stock),
         emoji,
-        sold: 0
+        sold: 0,
+        imageUrl
       };
 
       const newLogs = [
@@ -108,6 +136,25 @@ export default function InventoryPage() {
       });
     }
 
+    // If Firestore active sync is configured, sync the entire store
+    try {
+      const { getFirebaseFirestore } = await import("@/lib/firebase");
+      const dbFirestore = getFirebaseFirestore();
+      if (dbFirestore && db.firebaseConnected && db.settings.storeSlug) {
+        const { doc, setDoc } = await import("firebase/firestore");
+        const storeRef = doc(dbFirestore, "retailiq_stores", db.settings.storeSlug);
+        await setDoc(storeRef, {
+          products: editingProduct 
+            ? db.products.map(p => p.id === editingProduct.id ? { ...p, name, sku, category, price, cost, stock, emoji, imageUrl } : p)
+            : [{ id: `p-${Date.now()}`, name, sku, category, price, cost, stock, emoji, sold: 0, imageUrl }, ...db.products],
+          lastUpdated: new Date().toISOString()
+        }, { merge: true });
+      }
+    } catch (e) {
+      console.error("Firestore automatic store catalog sync failed:", e);
+    }
+
+    setUploading(false);
     resetForm();
   };
 
@@ -119,6 +166,7 @@ export default function InventoryPage() {
     setCost(0);
     setStock(0);
     setEmoji("📦");
+    setImageFile(null);
     setEditingProduct(null);
     setShowAddModal(false);
   };
@@ -256,8 +304,12 @@ export default function InventoryPage() {
                   return (
                     <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-6 py-3.5 flex items-center gap-3">
-                        <span className="w-8 h-8 bg-slate-100 border border-slate-200/50 rounded-lg flex items-center justify-center text-lg shadow-sm">
-                          {p.emoji || "📦"}
+                        <span className="w-8 h-8 bg-slate-100 border border-slate-200/50 rounded-lg flex items-center justify-center text-lg shadow-sm overflow-hidden shrink-0">
+                          {p.imageUrl ? (
+                            <img src={p.imageUrl} className="w-full h-full object-cover" alt={p.name} />
+                          ) : (
+                            p.emoji || "📦"
+                          )}
                         </span>
                         <div className="text-start">
                           <span className="font-extrabold text-slate-800 leading-tight block">{p.name}</span>
@@ -474,6 +526,23 @@ export default function InventoryPage() {
                       onChange={(e) => setPrice(Number(e.target.value))}
                     />
                   </div>
+
+                  {/* Image file uploader */}
+                  <div className="flex flex-col gap-1.5 col-span-2">
+                    <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                      {isRtl ? "صورة المنتج (اختياري - Firebase Storage)" : "Product Image (Optional - Firebase Storage)"}
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-700 outline-none focus:bg-white focus:border-blue-500 transition-all cursor-pointer"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          setImageFile(e.target.files[0]);
+                        }
+                      }}
+                    />
+                  </div>
                 </div>
 
                 {/* Real-time calculated margins details */}
@@ -490,15 +559,17 @@ export default function InventoryPage() {
                   <button
                     type="button"
                     onClick={resetForm}
-                    className="text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 cursor-pointer transition-all"
+                    disabled={uploading}
+                    className="text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 cursor-pointer transition-all disabled:opacity-50"
                   >
                     {t("discardFormBtn")}
                   </button>
                   <button
                     type="submit"
-                    className="text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl px-4 py-2.5 cursor-pointer shadow-md shadow-blue-500/10 transition-all"
+                    disabled={uploading}
+                    className="text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl px-4 py-2.5 cursor-pointer shadow-md shadow-blue-500/10 transition-all disabled:opacity-50"
                   >
-                    {isRtl ? "تأكيد وتثبيت" : "Confirm & Save Entry"}
+                    {uploading ? (isRtl ? "جاري الحفظ والرفع..." : "Saving & Uploading...") : (isRtl ? "تأكيد وتثبيت" : "Confirm & Save Entry")}
                   </button>
                 </div>
               </form>

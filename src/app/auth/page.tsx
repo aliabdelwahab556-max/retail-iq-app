@@ -72,7 +72,11 @@ export default function AuthPage() {
       logs: newLogs
     });
 
-    router.push("/dashboard");
+    if (!db.settings.businessType) {
+      router.push("/onboarding");
+    } else {
+      router.push("/dashboard");
+    }
   };
 
   return (

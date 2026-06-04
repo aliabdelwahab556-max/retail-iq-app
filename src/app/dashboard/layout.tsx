@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { 
   LayoutGrid, ShoppingCart, Package, BarChart3, Users, 
   BookOpen, FileSpreadsheet, Sparkles, Truck, Settings,
-  Search, Bell, LogOut, FileText, Menu, X, Landmark, RefreshCw
+  Search, Bell, LogOut, FileText, Menu, X, Landmark, RefreshCw, Store
 } from "lucide-react";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -37,6 +37,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { id: "suppliers", icon: Truck, path: "/dashboard/suppliers", labelKey: "menuSuppliers" },
     { id: "settings", icon: Settings, path: "/dashboard/settings", labelKey: "menuSettings" },
   ];
+
+  const businessType = db.settings.businessType || "both";
+  const storeSlug = db.settings.storeSlug || "";
+
+  const filteredNavItems = navItems.filter((item) => {
+    if (businessType === "ecommerce" && item.id === "pos") {
+      return false; // Hide POS register for e-commerce only merchants
+    }
+    return true;
+  });
 
   // Dynamic calculations for modals
   const dynamicGains = db.orders.reduce((sum, o) => sum + o.total, 0);
@@ -74,7 +84,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
           {/* Navigation Links */}
           <nav className="px-4 flex flex-col gap-1">
-            {navItems.map((item) => {
+            {filteredNavItems.map((item) => {
               const active = pathname === item.path;
               return (
                 <button
@@ -95,6 +105,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </button>
               );
             })}
+
+            {(businessType === "ecommerce" || businessType === "both") && storeSlug && (
+              <a
+                href={`/store/${storeSlug}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3.5 px-4 py-2.5 rounded-xl font-bold text-xs transition-all text-emerald-600 hover:bg-emerald-50 border border-transparent hover:border-emerald-100 mt-2"
+              >
+                <Store className="w-4 h-4 text-emerald-500 shrink-0" />
+                <span>{isRtl ? "عرض المتجر الإلكتروني" : "View Online Store"}</span>
+              </a>
+            )}
           </nav>
         </div>
 

@@ -8,6 +8,7 @@ export interface Product {
   emoji: string;
   sold: number;
   sku: string;
+  imageUrl?: string;
 }
 
 export interface OrderItem {
@@ -65,6 +66,9 @@ export interface RetailSettings {
   shopifyAccessToken: string;
   stripePublishableKey: string;
   stripeSecretKey: string;
+  businessType?: "cashier" | "ecommerce" | "both";
+  storeName?: string;
+  storeSlug?: string;
 }
 
 export interface RetailDB {
