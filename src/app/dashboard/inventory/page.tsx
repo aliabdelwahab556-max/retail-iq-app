@@ -190,7 +190,7 @@ export default function InventoryPage() {
     const newLogs = [
       {
         timestamp: new Date().toISOString(),
-        task: `Product ${name} removed from active database catalog by Ahmed.`,
+        task: `Product ${name} removed from active database catalog by ${db.settings.managerName || "Manager"}.`,
         channel: "Inventory",
         value: 0
       },

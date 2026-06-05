@@ -91,14 +91,14 @@ export const DB_INIT: RetailDB = {
   shopifyConnected: false,
   firebaseConnected: true,
   firebaseConfig: {
-    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyAs-CENTRAL-RETAILIQ-KEY-FALLBACK-2026",
-    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "retail-iq-central"
+    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "",
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || ""
   },
   settings: {
     businessName: "RetailIQ Store",
     currency: "$",
     taxRate: 8.5,
-    managerName: "Ahmed",
+    managerName: "",
     autoSync: true,
     syncInterval: "15",
     language: "en",
@@ -122,8 +122,8 @@ export function getStoredDB(): RetailDB {
   try {
     const data = localStorage.getItem("retailiq_db");
     const centralConfig = {
-      apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyAs-CENTRAL-RETAILIQ-KEY-FALLBACK-2026",
-      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "retail-iq-central"
+      apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "",
+      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || ""
     };
     if (data) {
       const parsed = JSON.parse(data);
@@ -135,6 +135,18 @@ export function getStoredDB(): RetailDB {
       if (!parsed.settings.shopifyAccessToken) parsed.settings.shopifyAccessToken = "";
       if (!parsed.settings.stripePublishableKey) parsed.settings.stripePublishableKey = "";
       if (!parsed.settings.stripeSecretKey) parsed.settings.stripeSecretKey = "";
+      
+      if (parsed.settings.managerName === "Ahmed" || parsed.settings.managerName === "Ahmad") {
+        parsed.settings.managerName = "";
+      }
+      if (parsed.logs) {
+        parsed.logs = parsed.logs.map((log: any) => {
+          if (log.task && log.task.includes("Ahmed login session established.")) {
+            return { ...log, task: log.task.replace("Ahmed login session established.", "Admin login session established.") };
+          }
+          return log;
+        });
+      }
       
       // Force central Firebase credentials for SaaS mode
       parsed.firebaseConnected = true;

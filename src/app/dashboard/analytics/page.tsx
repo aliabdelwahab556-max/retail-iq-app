@@ -49,7 +49,7 @@ export default function AnalyticsPage() {
   ];
 
   const salespeople = [
-    { name: "Ahmed (Admin)", revenue: 14850.00, contribution: "52%" },
+    { name: `${db.settings.managerName || "Admin"} (Admin)`, revenue: 14850.00, contribution: "52%" },
     { name: "Mustafa", revenue: 8560.00, contribution: "30%" },
     { name: "Shopify Sync", revenue: 5130.00, contribution: "18%" }
   ];

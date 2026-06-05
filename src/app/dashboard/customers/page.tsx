@@ -52,7 +52,7 @@ export default function CustomersPage() {
     const newLogs = [
       {
         timestamp: new Date().toISOString(),
-        task: `B2B Loyalty profile created for ${name} (${email}) by Ahmed.`,
+        task: `B2B Loyalty profile created for ${name} (${email}) by ${db.settings.managerName || "Manager"}.`,
         channel: "Customers",
         value: 0
       },
