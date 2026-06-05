@@ -212,8 +212,8 @@ export default function AiCopilotPage() {
           targetAr = "قسم الإكسسوارات";
         }
         responseText = `لقد قمت بتطبيق خصم بنسبة **${percentage}%** على **${targetAr}** بنجاح! \nسيتم تعديل الأسعار فوراً في المخزن ودفتر المبيعات. [[DISCOUNT:${target}:${percentage}]]`;
-      } else if (query.includes("مرحبا") || query.includes("مرحباً") || query.includes("اهلاً") || query.includes("أهلاً") || query.includes("اهلا") || query.includes("صباح الخير") || query.includes("مساء الخير")) {
-        responseText = `أهلاً بك يا ${db.settings.managerName || "أدمن"}! 👋 \nأنا مساعدك الافتراضي الذكي لـ RetailIQ. يمكنك سؤالي عن مبيعاتك، مستويات مخزونك، أرباح اليومية، أو كتابة مسودات لإرسالها للموردين. كيف يمكنني مساعدتك اليوم؟`;
+      } else if (query.includes("مرحبا") || query.includes("مرحباً") || query.includes("اهلاً") || query.includes("أهلاً") || query.includes("اهلا") || query.includes("هاي") || query.includes("هلا") || query.includes("هلو") || query.includes("سلام") || query.includes("صباح الخير") || query.includes("مساء الخير") || query.includes("يا هلا")) {
+        responseText = `أهلاً بك يا ${db.settings.managerName || "أدمن"}! 👋 \nأنا مساعدك الافتراضي الذكي لـ RetailIQ. يمكنك سؤالي عن مبيعاتك، مستويات مخزونك، أرباحك اليومية، أو كتابة مسودات لإرسالها للموردين. كيف يمكنني مساعدتك اليوم؟\n\n💡 **ملاحظة:** لكي يعمل المحادثة الذكية الحقيقية (Gemini AI Chat) بشكل فعال وكامل وتدخل معك في حوار مفتوح، يرجى الذهاب إلى صفحة الإعدادات العامة وإدخال مفتاح الـ API الخاص بك (Gemini API Key) في الحقل المخصص.`;
       } else if (query.includes("باقة") || query.includes("خطة") || query.includes("اشتراك") || query.includes("ترقية") || query.includes("plan") || query.includes("subscription")) {
         responseText = `خطة اشتراك متجرك الحالية هي **RetailIQ ${db.settings.activePlan || "Starter"}**. \n\n• باقة Starter ($19): نقاط بيع واحدة. \n• باقة Growth ($29): تفعيل مزامنة شوبيفاي المتعددة. \n• باقة Pro ($49): دعم B2B كامل بدون رسوم معاملات. \nيمكنك الترقية في أي وقت من شاشة الإعدادات.`;
       } else if (query.includes("شوبيفاي") || query.includes("shopify") || query.includes("اونلاين") || query.includes("متجر إلكتروني")) {
