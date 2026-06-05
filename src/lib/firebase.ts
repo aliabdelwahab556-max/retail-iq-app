@@ -15,6 +15,7 @@ export function getFirebaseApp(config?: { apiKey: string; projectId: string }) {
     apiKey,
     projectId,
     authDomain: `${projectId}.firebaseapp.com`,
+    storageBucket: `${projectId}.appspot.com`,
   };
 
   try {

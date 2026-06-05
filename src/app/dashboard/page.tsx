@@ -13,6 +13,22 @@ export default function DashboardHome() {
   const router = useRouter();
   const cSymbol = db.settings.currency;
 
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const getDynamicDateRange = () => {
+    const today = new Date();
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(today.getDate() - 6);
+    
+    const options: Intl.DateTimeFormatOptions = { month: "short", day: "numeric", year: "numeric" };
+    const locale = db.settings.language === "ar" ? "ar-EG" : "en-US";
+    
+    return `${sevenDaysAgo.toLocaleDateString(locale, options)} – ${today.toLocaleDateString(locale, options)}`;
+  };
+
   // 1. Dynamic KPIs (100% Real from dynamic database state, zero offsets)
   const totalRevenue = db.orders.reduce((sum, o) => sum + o.total, 0);
 
@@ -68,7 +84,7 @@ export default function DashboardHome() {
         </div>
         <div className="flex items-center gap-2 border border-slate-200 bg-white rounded-xl px-4 py-2 text-xs font-bold text-slate-700 shadow-sm">
           <span>📅</span>
-          <span>{t("dateTimeframe")}</span>
+          <span>{mounted ? getDynamicDateRange() : ""} ∨</span>
         </div>
       </div>
 

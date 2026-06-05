@@ -193,42 +193,56 @@ export default function AiCopilotPage() {
     let responseText = "";
 
     if (isRtl) {
-      if (query.includes("خصم") || query.includes("discount")) {
+      if (query.includes("خصم") || query.includes("تنزيل") || query.includes("تخفيض") || query.includes("discount")) {
         const pctMatch = query.match(/(\d+)/);
-        const percentage = pctMatch ? parseInt(pctMatch[1], 10) : 5;
+        const percentage = pctMatch ? parseInt(pctMatch[1], 10) : 10;
         let target = "all";
         let targetAr = "جميع المنتجات";
         if (query.includes("إلكترونيات") || query.includes("electronics")) {
           target = "Electronics";
-          targetAr = "الإلكترونيات";
+          targetAr = "قسم الإلكترونيات";
         } else if (query.includes("ملابس") || query.includes("apparel") || query.includes("clothes")) {
           target = "Apparel";
-          targetAr = "الملابس";
+          targetAr = "قسم الملابس";
         } else if (query.includes("مجوهرات") || query.includes("jewelry")) {
           target = "Jewelry";
-          targetAr = "المجوهرات";
+          targetAr = "قسم المجوهرات";
         } else if (query.includes("إكسسوارات") || query.includes("accessories")) {
           target = "Accessories";
-          targetAr = "الإكسسوارات";
+          targetAr = "قسم الإكسسوارات";
         }
-        responseText = `لقد قمت بتطبيق خصم بنسبة **${percentage}%** على **${targetAr}** بنجاح! [[DISCOUNT:${target}:${percentage}]]`;
-      } else if (query.includes("وصف") || query.includes("اكتب") || query.includes("description")) {
-        responseText = `📝 **وصف تسويقي مقترح للمنتج (Fallback):**\nمنتج استثنائي يجمع بين المتانة والتصميم العصري الأنيق. تم تصنيعه باستخدام خامات عالية الجودة لضمان أداء مستدام، وهو الرفيق المثالي لأسلوب حياتك اليومي. \n\n*ملاحظة: يرجى تفعيل مفتاح Gemini API للحصول على أوصاف ذكية ومخصصة بالكامل.*`;
-      } else if (query.includes("تحليل") || query.includes("أرباح") || query.includes("ربح") || query.includes("profit")) {
-        responseText = `📊 **تحليل الأرباح والمبيعات الموحد:**\n- إجمالي المبيعات الموحدة: **${cSymbol}${totalRevenue.toLocaleString(undefined, {minimumFractionDigits: 2})}**\n- صافي الأرباح التشغيلية: **${cSymbol}${netProfit.toLocaleString(undefined, {minimumFractionDigits: 2})}**\n- نسبة هامش الربح التقريبية: **26%** من إجمالي المبيعات.\n- المنتج الأكثر مبيعاً: **${bestSelling}**.\n- حالة المخزون: يوجد سلع ناقصة بحاجة لإعادة تعبئة (**${lowStockItems || "لا يوجد"}**).`;
-      } else if (query.includes("مخزن") || query.includes("بضاعة") || query.includes("stock") || query.includes("نقص")) {
+        responseText = `لقد قمت بتطبيق خصم بنسبة **${percentage}%** على **${targetAr}** بنجاح! \nسيتم تعديل الأسعار فوراً في المخزن ودفتر المبيعات. [[DISCOUNT:${target}:${percentage}]]`;
+      } else if (query.includes("مرحبا") || query.includes("مرحباً") || query.includes("اهلاً") || query.includes("أهلاً") || query.includes("اهلا") || query.includes("صباح الخير") || query.includes("مساء الخير")) {
+        responseText = `أهلاً بك يا ${db.settings.managerName || "أدمن"}! 👋 \nأنا مساعدك الافتراضي الذكي لـ RetailIQ. يمكنك سؤالي عن مبيعاتك، مستويات مخزونك، أرباح اليومية، أو كتابة مسودات لإرسالها للموردين. كيف يمكنني مساعدتك اليوم؟`;
+      } else if (query.includes("باقة") || query.includes("خطة") || query.includes("اشتراك") || query.includes("ترقية") || query.includes("plan") || query.includes("subscription")) {
+        responseText = `خطة اشتراك متجرك الحالية هي **RetailIQ ${db.settings.activePlan || "Starter"}**. \n\n• باقة Starter ($19): نقاط بيع واحدة. \n• باقة Growth ($29): تفعيل مزامنة شوبيفاي المتعددة. \n• باقة Pro ($49): دعم B2B كامل بدون رسوم معاملات. \nيمكنك الترقية في أي وقت من شاشة الإعدادات.`;
+      } else if (query.includes("شوبيفاي") || query.includes("shopify") || query.includes("اونلاين") || query.includes("متجر إلكتروني")) {
+        responseText = db.shopifyConnected 
+          ? `ربط شوبيفاي **نشط ومتصل حالياً**! 🟢 \nيتم جلب مبيعات الأونلاين ومزامنة المخازن تلقائياً بانتظام.`
+          : `ربط شوبيفاي **غير نشط حالياً**. 🔴 \nيرجى التوجه إلى صفحة الإعدادات وتفعيل المزامنة التلقائية باستعمال مفتاح الوصول (API Token) الخاص بك.`;
+      } else if (query.includes("عملة") || query.includes("ضريبة") || query.includes("ضرائب") || query.includes("tax") || query.includes("currency")) {
+        responseText = `العملة المعتمدة في كشوفاتك هي **${cSymbol}** ونسبة الضريبة المحتسبة تلقائياً للمبيعات هي **${db.settings.taxRate}%**.`;
+      } else if (query.includes("كاشير") || query.includes("pos") || query.includes("فاتورة") || query.includes("تسوية")) {
+        const posOrders = db.orders.filter(o => o.channel === "POS");
+        const posSales = posOrders.reduce((sum, o) => sum + o.total, 0);
+        responseText = `📊 **ملخص عمليات الكاشير (POS):**\n- عدد الفواتير المسجلة: **${posOrders.length} فواتير**.\n- إجمالي مبيعات الكاشير: **${cSymbol}${posSales.toLocaleString(undefined, {minimumFractionDigits: 2})}**.\n- طرق التسوية المستخدمة تشمل الدفع النقدي الفوري والأقساط المجدولة.`;
+      } else if (query.includes("وصف") || query.includes("اكتب") || query.includes("description") || query.includes("توليد")) {
+        responseText = `📝 **وصف تسويقي مقترح للمنتج (Local Fallback):**\nمنتج استثنائي يجمع بين الجودة الفائقة والتصميم العصري الأنيق. مصمم خصيصاً لتلبية احتياجات عملائك اليومية بكفاءة عالية، مما يجعله إضافة مثالية لكتالوج متجرك الإلكتروني. \n\n*ملاحظة: يمكنك إدخال مفتاح Gemini API في الإعدادات لتفعيل توليد الوصف بالذكاء الاصطناعي السحابي التفاعلي.*`;
+      } else if (query.includes("تحليل") || query.includes("أرباح") || query.includes("ربح") || query.includes("profit") || query.includes("خسارة")) {
+        responseText = `📊 **تحليل الأرباح والخسائر المالي:**\n- إجمالي المبيعات الموحدة: **${cSymbol}${totalRevenue.toLocaleString(undefined, {minimumFractionDigits: 2})}**\n- صافي الأرباح (بعد الخصومات): **${cSymbol}${netProfit.toLocaleString(undefined, {minimumFractionDigits: 2})}**\n- نسبة هامش الأرباح: تقريباً **26%**.\n- المنتج الأكثر ربحاً ومبيعاً: **${bestSelling}**.\n- التلفيات المسجلة: تم إعدام خاتم الماس بقيمة تكلفة مورد **-${cSymbol}1,100.00** بسبب ضرر الشحن الإقليمي.`;
+      } else if (query.includes("مخزن") || query.includes("بضاعة") || query.includes("stock") || query.includes("نقص") || query.includes("مورد")) {
         responseText = db.products.filter(p => p.stock <= 9).length > 0 
-          ? `السلع التي أوشكت على النفاد حالياً هي: **${lowStockItems}**. يوصى بشدة بالتنسيق مع الموردين المعنيين لإرسال أوامر توريد جديدة لتجنب أي توقف.`
-          : `مستويات المخزون لديك ممتازة! لا توجد حالياً أي منتجات تحت حد الأمان التشغيلي.`;
-      } else if (query.includes("إيراد") || query.includes("مبيعات") || query.includes("revenue")) {
-        responseText = `إجمالي مبيعات وإيرادات المتجر الموحدة (POS + شوبيفاي) تبلغ **${cSymbol}${totalRevenue.toLocaleString(undefined, {minimumFractionDigits: 2})}**. السلعة الأكثر طلباً وسحباً هي **${bestSelling}**.`;
+          ? `السلع التي أوشكت على النفاد حالياً هي: **${lowStockItems}**. \n\n✍️ **مسودة إيميل طلب توريد جاهزة للإرسال للمورد:**\n\`\`\`\nالموضوع: طلب توريد سلع عاجل - متجر ${db.settings.businessName}\nإلى: supply@retailiq-partners.com\n\nعزيزي المورد،\nنرجو تقديم طلبية إعادة شحن وتوريد عاجلة للمنتجات التالية:\n• ${lowStockItems.split(", ").map(name => `${name} (+50 وحدة)`).join("\n• ")}\n\nيرجى تأكيد موعد الشحن وإرسال الفاتورة.\nتحياتي،\n${db.settings.managerName || "مدير المتجر"}\n\`\`\``
+          : `مستويات المخزون ممتازة! لا توجد حالياً أي منتجات تحت حد الأمان التشغيلي (9 وحدات).`;
+      } else if (query.includes("إيراد") || query.includes("مبيعات") || query.includes("revenue") || query.includes("sales")) {
+        responseText = `إجمالي إيرادات ومبيعات متجرك الموحدة (POS + شوبيفاي) تبلغ **${cSymbol}${totalRevenue.toLocaleString(undefined, {minimumFractionDigits: 2})}**. \nالسلعة الأكثر سحباً وطلباً هي **${bestSelling}**.`;
       } else {
-        responseText = `لقد قمت بتحليل استفسارك عن "${userText}". إيراداتك الإجمالية تبلغ **${cSymbol}${totalRevenue.toLocaleString(undefined, {minimumFractionDigits: 2})}**، وصافي الأرباح **${cSymbol}${netProfit.toLocaleString(undefined, {minimumFractionDigits: 2})}**. السلعة الأفضل مبيعاً هي **${bestSelling}**، وهناك سلع ناقصة: **[${lowStockItems}]**.`;
+        responseText = `لقد قمت بتحليل استفسارك بخصوص: "${userText}". \nإليك كشف الحساب السريع لمتجرك الحالي:\n\n• 💰 **إجمالي المبيعات:** **${cSymbol}${totalRevenue.toLocaleString(undefined, {minimumFractionDigits: 2})}**\n• 📈 **صافي الأرباح:** **${cSymbol}${netProfit.toLocaleString(undefined, {minimumFractionDigits: 2})}**\n• 🏆 **السلعة الأكثر طلباً:** **${bestSelling}**\n• ⚠️ **سلع منخفضة المخزون:** **${lowStockItems || "لا يوجد"}**\n• 🏢 **حالة المتجر:** متصل بقاعدة البيانات المركزية بنجاح.\n\nكيف يمكنني مساعدتك بشكل أكبر؟`;
       }
     } else {
-      if (query.includes("discount") || query.includes("promo")) {
+      if (query.includes("discount") || query.includes("promo") || query.includes("coupon")) {
         const pctMatch = query.match(/(\d+)/);
-        const percentage = pctMatch ? parseInt(pctMatch[1], 10) : 5;
+        const percentage = pctMatch ? parseInt(pctMatch[1], 10) : 10;
         let target = "all";
         let targetEn = "all products";
         if (query.includes("electronics")) {
@@ -245,18 +259,32 @@ export default function AiCopilotPage() {
           targetEn = "Accessories";
         }
         responseText = `Successfully applied a **${percentage}%** discount on **${targetEn}**! [[DISCOUNT:${target}:${percentage}]]`;
+      } else if (query.includes("hello") || query.includes("hi") || query.includes("hey") || query.includes("greetings") || query.includes("welcome")) {
+        responseText = `Hello ${db.settings.managerName || "Admin"}! 👋 \nI am your RetailIQ AI Advisor. Ask me anything about your current live sales, stock alerts, margins, or accounting ledgers. How can I assist you today?`;
+      } else if (query.includes("plan") || query.includes("subscription") || query.includes("upgrade") || query.includes("pricing")) {
+        responseText = `Your store is currently running on the **RetailIQ ${db.settings.activePlan || "Starter"}** plan. \n\n• Starter ($19/mo): Single physical register. \n• Growth ($29/mo): Multiple active Shopify channel links. \n• Pro ($49/mo): B2B support with zero transaction fees. \nYou can modify your plan in Settings.`;
+      } else if (query.includes("shopify") || query.includes("e-commerce") || query.includes("storefront") || query.includes("online")) {
+        responseText = db.shopifyConnected
+          ? `Shopify Integration is **currently active and connected**! 🟢 \nOnline orders and product warehouse catalogs sync in the background.`
+          : `Shopify Integration is **offline**. 🔴 \nPlease connect your store URL and input your Admin Access token in the Settings panel to activate sync.`;
+      } else if (query.includes("currency") || query.includes("tax")) {
+        responseText = `Your base operating currency is **${cSymbol}** and the active sales tax rate is **${db.settings.taxRate}%**.`;
+      } else if (query.includes("pos") || query.includes("cashier") || query.includes("register") || query.includes("ticket")) {
+        const posOrders = db.orders.filter(o => o.channel === "POS");
+        const posSales = posOrders.reduce((sum, o) => sum + o.total, 0);
+        responseText = `📊 **POS Register Analytics:**\n- Completed POS tickets: **${posOrders.length} orders**.\n- Total POS Sales yield: **${cSymbol}${posSales.toLocaleString(undefined, {minimumFractionDigits: 2})}**.\n- Checkout payment methods include Cash POS settlement and Layaway plan options.`;
       } else if (query.includes("description") || query.includes("write") || query.includes("generate")) {
-        responseText = `📝 **Suggested Marketing Description (Fallback):**\nAn exceptional product combining durablity with sleek modern aesthetics. Engineered using premium materials to ensure high performance, it is the perfect companion for your daily needs. \n\n*Note: Please configure a Gemini API key in Settings to unlock custom generative AI descriptions.*`;
-      } else if (query.includes("analyze") || query.includes("profit") || query.includes("earn")) {
-        responseText = `📊 **Sales & Margin Analysis:**\n- Combined Revenue: **${cSymbol}${totalRevenue.toLocaleString(undefined, {minimumFractionDigits: 2})}**\n- Net Operating Profit: **${cSymbol}${netProfit.toLocaleString(undefined, {minimumFractionDigits: 2})}**\n- Profit Margin: approx. **26%** of total turnover.\n- Top Selling Item: **${bestSelling}**.\n- Low Stock Warning: **[${lowStockItems || "None"}]**.`;
-      } else if (query.includes("stock") || query.includes("inventory") || query.includes("low")) {
+        responseText = `📝 **Suggested Product Description (Local Fallback):**\nAn exceptional product combining durable construction with a sleek, modern aesthetic. Engineered using high-grade materials to ensure longevity, it is the perfect companion for your customers' everyday lifestyle.\n\n*Note: Add a Gemini API key in Settings to activate interactive generative AI features.*`;
+      } else if (query.includes("analyze") || query.includes("profit") || query.includes("earn") || query.includes("loss")) {
+        responseText = `📊 **Sales & Margin Analysis:**\n- Combined Sales Revenue: **${cSymbol}${totalRevenue.toLocaleString(undefined, {minimumFractionDigits: 2})}**\n- Net Profit: **${cSymbol}${netProfit.toLocaleString(undefined, {minimumFractionDigits: 2})}**\n- Profit Margin Index: approx. **26%**.\n- Best Selling Product: **${bestSelling}**.\n- Tracked Loss: Diamond Ring damaged freight carrying loss of **-${cSymbol}1,100.00**.`;
+      } else if (query.includes("stock") || query.includes("inventory") || query.includes("low") || query.includes("supplier")) {
         responseText = db.products.filter(p => p.stock <= 9).length > 0
-          ? `The following products are currently low in stock: **${lowStockItems}**. Consider scheduling a restocking order PO soon.`
-          : `All inventory stocks are healthy. No items are currently under the warning threshold of 9 units.`;
+          ? `The following products are currently low in stock: **${lowStockItems}**. \n\n✍️ **Draft restock PO email to your supplier:**\n\`\`\`\nSubject: Critical Restock Order Request - ${db.settings.businessName}\nTo: supply@retailiq-partners.com\n\nDear Supplier,\nWe would like to place an urgent restock request for the following items:\n• ${lowStockItems.split(", ").map(name => `${name} (+50 units)`).join("\n• ")}\n\nPlease confirm shipment dates and send the invoice.\nBest regards,\n${db.settings.managerName || "Store Manager"}\n\`\`\``
+          : `All warehouse stock levels are healthy! No items are currently under the replenishment threshold (9 units).`;
       } else if (query.includes("revenue") || query.includes("sales")) {
-        responseText = `Your total combined revenue stands at **${cSymbol}${totalRevenue.toLocaleString(undefined, {minimumFractionDigits: 2})}**. The top-selling product in your catalog is **${bestSelling}**.`;
+        responseText = `Your total combined revenue stands at **${cSymbol}${totalRevenue.toLocaleString(undefined, {minimumFractionDigits: 2})}**. \nThe top-performing product in your catalog is **${bestSelling}**.`;
       } else {
-        responseText = `Based on your live store state, your total revenue is **${cSymbol}${totalRevenue.toLocaleString(undefined, {minimumFractionDigits: 2})}** with a net profit of **${cSymbol}${netProfit.toLocaleString(undefined, {minimumFractionDigits: 2})}**. The best selling item is **${bestSelling}**, and the low stock entries are **[${lowStockItems}]**.`;
+        responseText = `I have analyzed your query regarding: "${userText}". \nHere is a quick operational digest of your business:\n\n• 💰 **Consolidated Revenue:** **${cSymbol}${totalRevenue.toLocaleString(undefined, {minimumFractionDigits: 2})}**\n• 📈 **Net Profit:** **${cSymbol}${netProfit.toLocaleString(undefined, {minimumFractionDigits: 2})}**\n• 🏆 **Top Selling SKU:** **${bestSelling}**\n• ⚠️ **Low Stock warning:** **${lowStockItems || "None"}**\n• 🏢 **Status:** Successfully connected to the centralized SaaS cloud database.\n\nHow else can I assist you today?`;
       }
     }
 

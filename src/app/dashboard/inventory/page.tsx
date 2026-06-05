@@ -23,9 +23,9 @@ export default function InventoryPage() {
   const [name, setName] = useState("");
   const [sku, setSku] = useState("");
   const [category, setCategory] = useState("Electronics");
-  const [price, setPrice] = useState(0);
-  const [cost, setCost] = useState(0);
-  const [stock, setStock] = useState(0);
+  const [price, setPrice] = useState<number | "">("");
+  const [cost, setCost] = useState<number | "">("");
+  const [stock, setStock] = useState<number | "">("");
   const [emoji, setEmoji] = useState("📦");
 
   const cSymbol = db.settings.currency;
@@ -51,19 +51,37 @@ export default function InventoryPage() {
     setUploading(true);
     let uploadedUrl = "";
     
-    // Upload image to Firebase Storage if selected
+    // Upload image to Firebase Storage if selected (falls back to base64 Data URL locally if unconfigured)
     if (imageFile) {
       try {
         const { getFirebaseStorage } = await import("@/lib/firebase");
         const storage = getFirebaseStorage(db.firebaseConfig);
-        if (storage) {
+        if (storage && db.firebaseConfig.apiKey && db.firebaseConfig.projectId) {
           const { ref, uploadBytes, getDownloadURL } = await import("firebase/storage");
           const imgRef = ref(storage, `retailiq_products/${Date.now()}-${imageFile.name}`);
           const uploadResult = await uploadBytes(imgRef, imageFile);
           uploadedUrl = await getDownloadURL(uploadResult.ref);
+        } else {
+          // Fallback locally
+          uploadedUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(imageFile);
+          });
         }
       } catch (err) {
-        console.error("Firebase Storage image upload failed, falling back:", err);
+        console.error("Firebase Storage image upload failed, falling back to base64:", err);
+        try {
+          uploadedUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(imageFile);
+          });
+        } catch (readErr) {
+          console.error("FileReader fallback failed:", readErr);
+        }
       }
     }
 
@@ -162,9 +180,9 @@ export default function InventoryPage() {
     setName("");
     setSku("");
     setCategory("Electronics");
-    setPrice(0);
-    setCost(0);
-    setStock(0);
+    setPrice("");
+    setCost("");
+    setStock("");
     setEmoji("📦");
     setImageFile(null);
     setEditingProduct(null);
@@ -210,7 +228,9 @@ export default function InventoryPage() {
     setSku(`SKU-${prefix}-${random}`);
   };
 
-  const marginPercentage = price > 0 ? (((price - cost) / price) * 100).toFixed(0) : "0";
+  const marginPercentage = (typeof price === "number" && typeof cost === "number" && price > 0)
+    ? (((price - cost) / price) * 100).toFixed(0)
+    : "0";
 
   return (
     <div className="flex flex-col gap-6 text-slate-800">
@@ -493,7 +513,7 @@ export default function InventoryPage() {
                       min={0}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-700 outline-none focus:bg-white focus:border-blue-500 transition-all"
                       value={stock}
-                      onChange={(e) => setStock(Number(e.target.value))}
+                      onChange={(e) => setStock(e.target.value === "" ? "" : Number(e.target.value))}
                     />
                   </div>
 
@@ -508,7 +528,7 @@ export default function InventoryPage() {
                       min={0}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-700 outline-none focus:bg-white focus:border-blue-500 transition-all"
                       value={cost}
-                      onChange={(e) => setCost(Number(e.target.value))}
+                      onChange={(e) => setCost(e.target.value === "" ? "" : Number(e.target.value))}
                     />
                   </div>
 
@@ -523,7 +543,7 @@ export default function InventoryPage() {
                       min={0}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-700 outline-none focus:bg-white focus:border-blue-500 transition-all"
                       value={price}
-                      onChange={(e) => setPrice(Number(e.target.value))}
+                      onChange={(e) => setPrice(e.target.value === "" ? "" : Number(e.target.value))}
                     />
                   </div>
 

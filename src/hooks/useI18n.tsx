@@ -536,7 +536,22 @@ export function TranslationProvider({ children }: { children: React.ReactNode })
     localStorage.setItem("retailiq_lang", lang);
   };
 
+  const getDynamicTimeframeStr = (lang: "en" | "ar") => {
+    if (typeof window === "undefined") return "May 20 – May 26, 2024 ∨";
+    const today = new Date();
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(today.getDate() - 6);
+    
+    const options: Intl.DateTimeFormatOptions = { month: "short", day: "numeric", year: "numeric" };
+    const locale = lang === "ar" ? "ar-EG" : "en-US";
+    
+    return `${sevenDaysAgo.toLocaleDateString(locale, options)} – ${today.toLocaleDateString(locale, options)} ∨`;
+  };
+
   const t = (key: keyof typeof TRANSLATIONS.en): string => {
+    if (key === "dateTimeframe") {
+      return getDynamicTimeframeStr(language);
+    }
     const dict = TRANSLATIONS[language] || TRANSLATIONS.en;
     return (dict as any)[key] || (TRANSLATIONS.en as any)[key] || key;
   };
